@@ -1,4 +1,4 @@
-# Checks SteamDB to see if any steam games have had updates.
+# Checks SteamCMD to see if any steam games have had updates.
 import os
 import sys
 from datetime import datetime
@@ -6,11 +6,15 @@ from datetime import date
 from datetime import timedelta
 import requests
 import xml.etree.ElementTree as ET
-
+import app_info
 
 def get_app_ids(username):
     url = f"https://steamcommunity.com/profiles/{username}/games?tab=all&xml=1"
-    r = requests.get(url)
+    headers={
+    'cookie':'cf_chl_2=b0a0fb97c1aef6c; cf_chl_prog=x11; cf_clearance=Dg0rX.8dsVgkVTeuu_olEewXrYJWiIgSx1FewQ6uY50-1651099758-0-150; __Host-steamdb=0%3B3726637%3Bd52fde1ca7a5452b281097cdd3c3215d13777644',
+    'user-agent':"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/99.0.4844.82 Safari/537.36"
+    }
+    r = requests.get(url,headers=headers)
     if r.status_code != 200:
         print("Error Getting List of App IDs")
         return []
@@ -39,26 +43,22 @@ def extract_date(input_data):
 
 # Use SteamDB to look up when the last time a given app was updated.
 def get_app_updated_since(appid,app_name,cutoff_date):
-    headers = {
-        'x-requested-with': 'XMLHttpRequest',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/94.0.4606.54 Safari/537.36',
-    }       
+   
+    last_updated,deps = app_info.get_appid_info(appid)
 
-    url = f"https://steamdb.info/api/RenderAppHover/?appid={appid}"
-
-    r = requests.get(url,headers=headers)
-    if r.status_code != 200:
-        print(f"[Error] URL: {url} returned {r.status_code}")
-        print(r.content)
-        return False
-
-    res,last_updated = extract_date(r.content.decode('utf-8'))
-    if res is False:
+    print("-------------")
+    print(f"[INFO] {app_name} (AppID: {appid})")
+    if(deps == None):
+        print("ERROR")
+        print("-------------")
         return False
     
-    if cutoff < last_updated.date():
-        print(f"[INFO] Update Available for: {app_name} (AppID: {appid}): {last_updated.date()}")
+    print(f"Last Updated: {last_updated}\nDependencies: [{','.join(deps)}]\n")
+    if cutoff_date < last_updated:
+        print(f"Update Available! {last_updated}")
+        print("-------------")
         return True
+    print("-------------")
     return False
 
 if __name__=="__main__":
